@@ -160,7 +160,7 @@ const saveNovelToDB = async (novelData) => { //DB에 정보 값들을 넣어주�
     // 먼저 제목과 작가로 기존 데이터가 있는지 확인
     const selectQuery = 'SELECT id FROM novels WHERE title = ? AND author = ?';
     const [rows] = await db.query(selectQuery, [title, author]);
-
+    let novelId;
     if (rows.length > 0) {
       // 이미 존재하는 경우, 업데이트 수행
       const updateQuery = `
@@ -169,8 +169,8 @@ const saveNovelToDB = async (novelData) => { //DB에 정보 값들을 넣어주�
         WHERE id = ?
       `;
       const [result] = await db.query(updateQuery, [category, intViews, description, rows[0].id]);
-
-      console.log('Novel updated in database with ID:', rows[0].id);
+      novelId = rows[0].id;
+      console.log('Novel updated in database with ID:', novelId);
     } else {
       // 존재하지 않는 경우, 새로 삽입
       const insertQuery = `
@@ -178,8 +178,42 @@ const saveNovelToDB = async (novelData) => { //DB에 정보 값들을 넣어주�
         VALUES (?, ?, ?, ?, ?)
       `;
       const [result] = await db.query(insertQuery, [title, author, category, intViews, description]);
+      novelId = result.insertId;
+      console.log('Novel saved to database with ID:', novelId);
+      
+    }
+    //태그 삽입
+    for (let tag of tags) {
+      if (!tag.startsWith('#')) continue; // 태그가 '#'으로 시작하는지 확인
 
-      console.log('Novel saved to database with ID:', result.insertId);
+      // '#' 문자를 제거한 태그명
+      const tagName = tag.substring(1).trim(); // '#'을 제거하고 공백을 제거합니다.
+
+      // 태그가 존재하는지 확인
+      const selectTagQuery = 'SELECT id FROM tags WHERE name = ?';
+      const [tagRows] = await db.query(selectTagQuery, [tagName]);
+
+      let tagId;
+      if (tagRows.length > 0) {
+        // 이미 존재하는 경우 해당 태그의 id를 가져옴
+        tagId = tagRows[0].id;
+      } else {
+        // 존재하지 않는 경우 새로 삽입
+        const insertTagQuery = 'INSERT INTO tags (name) VALUES (?)';
+        const [insertTagResult] = await db.query(insertTagQuery, [tagName]);
+        tagId = insertTagResult.insertId;
+      }
+
+      // novel_tags 테이블에 소설과 태그의 관계를 삽입
+      const checkNovelTagQuery = 'SELECT * FROM novel_tags WHERE novel_id = ? AND tag_id = ?';
+      const [novelTagRows] = await db.query(checkNovelTagQuery, [novelId, tagId]);
+
+      if (novelTagRows.length === 0) {
+        // 중복되지 않는 경우, novel_tags 테이블에 관계 삽입
+        const insertNovelTagQuery = 'INSERT INTO novel_tags (novel_id, tag_id) VALUES (?, ?)';
+        await db.query(insertNovelTagQuery, [novelId, tagId]);
+      }
+
     }
   } catch (error) {
     console.error('Error saving or updating novel in database:', error);
