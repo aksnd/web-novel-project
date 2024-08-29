@@ -41,13 +41,11 @@ const fetchNovelLinks = async () => { //List_URL로 접속하여, 접속할 링�
   }
 };
 
-const fetchNovelData = async (url) => { //url을 받아서 필요한 정보를 크롤링 해오는 함수
+const fetchNovelData = async (url,browser) => { //url을 받아서 필요한 정보를 크롤링 해오는 함수
   console.log(url);
-  let browser;
   try {
     // Puppeteer 브라우저를 시작합니다.
-    const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox']}) //linux 버전
-    //browser = await puppeteer.launch({ headless: true }); // 윈도우 버전 
+    
     const page = await browser.newPage();
     
     // 페이지를 엽니다.
@@ -86,7 +84,7 @@ const fetchNovelData = async (url) => { //url을 받아서 필요한 정보를 �
       // 추출한 데이터를 객체로 반환합니다.
       return {title, author, category, views, description, tags};
     });
-
+    await page.close();
     console.log(novelData);
     await saveNovelToDB(novelData);
     return novelData;
@@ -94,11 +92,6 @@ const fetchNovelData = async (url) => { //url을 받아서 필요한 정보를 �
   } catch (error) {
     console.error(`Error fetching novel data from ${url}:`, error);
     return null;
-  } finally {
-    // 브라우저를 종료합니다.
-    if (browser) {
-      await browser.close();
-    }
   }
 };
 
@@ -135,10 +128,12 @@ function viewsToInt(viewsStr) {
 const fetchAllNovelsData = async () => { // main 함수
   const novelLinks = await fetchNovelLinks(); // 이전에 구현한 fetchNovelLinks 함수 호출
   const novels = [];
+  const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox']}) //linux 버전
+    //browser = await puppeteer.launch({ headless: true }); // 윈도우 버전 
 
   for (const link of novelLinks) {
     
-    const novelData = await fetchNovelData(link); // 각 링크에서 소설 데이터 추출
+    const novelData = await fetchNovelData(link,browser); // 각 링크에서 소설 데이터 추출
     if (novelData) {
       novels.push(novelData); // 유효한 데이터만 추가
     }
@@ -147,6 +142,7 @@ const fetchAllNovelsData = async () => { // main 함수
     await wait(waitTime);
 
   }
+  await browser.close();
 
   return novels;
 };
