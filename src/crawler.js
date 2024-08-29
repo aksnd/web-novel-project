@@ -46,7 +46,8 @@ const fetchNovelData = async (url) => { //url을 받아서 필요한 정보를 �
   let browser;
   try {
     // Puppeteer 브라우저를 시작합니다.
-    browser = await puppeteer.launch({ headless: true }); // headless: true로 설정하여 브라우저를 표시하지 않습니다.
+    const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox']}) //linux 버전
+    //browser = await puppeteer.launch({ headless: true }); // 윈도우 버전 
     const page = await browser.newPage();
     
     // 페이지를 엽니다.
