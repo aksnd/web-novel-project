@@ -1,9 +1,10 @@
 // src/app/api/novels/route.js
-import { pool } from '../../../lib/db';
 
+
+const db = require('../../../db/db'); // 데이터베이스 연결 모듈
 export async function GET() {
   try {
-    const [rows] = await pool.query('SELECT * FROM novels ORDER BY views DESC LIMIT 5');
+    const [rows] = await db.query('SELECT * FROM novels');
     return new Response(JSON.stringify(rows), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

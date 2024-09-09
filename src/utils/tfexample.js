@@ -1,6 +1,9 @@
 const cosineSimilarity = require('cosine-similarity');
 
-const db = require('./lib/db'); // 데이터베이스 연결 모듈
+const db = require('../db/db'); // 데이터베이스 연결 모듈
+
+let novels = null;
+let vectors = null;
 
 async function fetchNovelsAndTags() {
     const [rows] = await db.query(`
@@ -65,9 +68,41 @@ function computeCosineSimilarity(vectorA, vectorB) {
     return cosineSimilarity(vecA, vecB);
 }
 
+async function createNovelVectors(){
+    
+    novels = await fetchNovelsAndTags();
+    const tagDocumentCount = {}; //각 태그별 나오는 개수
+    const totalDocuments = novels.length; // 총 소설 개수
+    
+    novels.forEach(novel => {
+        const uniqueTags = new Set(novel.tags);
+        uniqueTags.forEach(tag => {
+            if (!tagDocumentCount[tag]) {
+                tagDocumentCount[tag] = 0;
+            }
+            tagDocumentCount[tag]++;
+        });
+    });
+    
+    const idf = computeIDF(tagDocumentCount, totalDocuments);
+
+        // 각 소설의 TF-IDF 벡터 생성
+    vectors = novels.map(novel => ({
+        id: novel.id,
+        vector: createTfIdfVector(novel.tags, idf)
+    }));
+    
+}
 // 유사도 계산
-function findSimilarNovels(novels, targetId, vectors, topN = 5) {
+export async function getSimilarNovels(targetId, topN = 5) {
+    
+    if(novels==null || vectors==null){
+        await createNovelVectors();
+    }
+
     const targetVector = vectors.find(v => v.id === targetId).vector;
+    
+
     return vectors.map(v => {
         if (v.id !== targetId) {
             const similarity = computeCosineSimilarity(targetVector, v.vector);
@@ -83,40 +118,13 @@ function findSimilarNovels(novels, targetId, vectors, topN = 5) {
 }
 // 데이터베이스에서 가져온 예제 태그와 소설 데이터
 
-
+/*
 async function main() {
     try {
-
-        const novels = await fetchNovelsAndTags();
-        const tagDocumentCount = {}; //각 태그별 나오는 개수
-        const totalDocuments = novels.length; // 총 소설 개수
-
-
-        // 각 소설에 대해 태그 등장 빈도와 문서 수 기록
-        novels.forEach(novel => {
-        const uniqueTags = new Set(novel.tags);
-        uniqueTags.forEach(tag => {
-            if (!tagDocumentCount[tag]) {
-                tagDocumentCount[tag] = 0;
-            }
-            tagDocumentCount[tag]++;
-        });
-        });
-
-        // idf 계산
-        const idf = computeIDF(tagDocumentCount, totalDocuments);
-
-        // 각 소설의 TF-IDF 벡터 생성
-        const vectors = novels.map(novel => ({
-        id: novel.id,
-        vector: createTfIdfVector(novel.tags, idf)
-        }));
-
-
         // 예제: targetId 소설과 다른 소설 간의 유사도 계산
-        const targetId = 31;
+        const targetId = 45;
+        const recommendations = await getSimilarNovels(targetId);
         const targetNovel = novels.find(novel => novel.id === targetId);
-        const recommendations = findSimilarNovels(novels, targetId, vectors);
 
         // 추천 결과 출력
         console.log("Recommendations for Novel Title:", targetNovel.title);
@@ -129,5 +137,5 @@ async function main() {
     }
 }
 
-main();
+main();*/
 

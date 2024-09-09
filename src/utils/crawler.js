@@ -1,8 +1,6 @@
-const axios = require('axios');
-const cheerio = require('cheerio');
 const puppeteer = require('puppeteer');
 
-const db = require('./lib/db'); // 데이터베이스 연결 모듈
+const db = require('../db/db'); // 데이터베이스 연결 모듈
 
 // 랜덤 대기 시간을 추가하는 함수
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -11,34 +9,48 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 // 실제 페이지 URL로 변경하세요.
 const LIST_URL = 'https://page.kakao.com/menu/10011/screen/94';
 
-const fetchNovelLinks = async () => { //List_URL로 접속하여, 접속할 링크들을 찾아주는 함수
-  try {
-    const { data } = await axios.get(LIST_URL, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
+const fetchNovelLinks = async (browser) => { //List_URL로 접속하여, 접속할 링크들을 찾아주는 함수
+  const page = await browser.newPage();
+  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+
+  await page.goto(LIST_URL, { waitUntil: 'networkidle2' });
+
+  const autoScroll = async () => {
+    await page.evaluate(async () => {
+      await new Promise((resolve) => {
+        let totalHeight = 0;
+        const distance = 100; // 스크롤 할 거리
+        const timer = setInterval(() => {
+          window.scrollBy(0, distance);
+          totalHeight += distance;
+
+          if (totalHeight >= document.body.scrollHeight) {
+            clearInterval(timer);
+            resolve();
+          }
+        }, 100); // 100ms마다 스크롤
       });
-      const $ = cheerio.load(data);
+    });
+  };
+  await autoScroll();
 
-    // 이미지 클릭으로 이동하는 링크를 추출합니다.
-    const novelLinks = [];
 
+  const novelLinks = await page.evaluate(() => {
+    const links = [];
     const eightDigitRegex = /\d{8}$/;
 
-    // 이미지 링크를 포함한 부모 요소의 링크를 추출
-    $('.w-full.overflow-hidden a').each((index, element) => {
-      const link = $(element).attr('href');
-      if (link) {
-        if (eightDigitRegex.test(link)) {
-            novelLinks.push(link.startsWith('http') ? link : `https://page.kakao.com${link}?tab_type=about`);
-          }
+    // '.w-full.overflow-hidden a' 셀렉터를 가진 링크 추출
+    document.querySelectorAll('.w-full.overflow-hidden a').forEach(element => {
+      const link = element.getAttribute('href');
+      if (link && eightDigitRegex.test(link)) {
+        links.push(link.startsWith('http') ? link : `https://page.kakao.com${link}?tab_type=about`);
       }
     });
 
-    return novelLinks;
-  } catch (error) {
-    console.error('Error fetching novel links:', error);
-  }
+    return links;
+  });
+  return novelLinks;
+
 };
 
 const fetchNovelData = async (url,browser) => { //url을 받아서 필요한 정보를 크롤링 해오는 함수
@@ -85,7 +97,6 @@ const fetchNovelData = async (url,browser) => { //url을 받아서 필요한 정
       return {title, author, category, views, description, tags};
     });
     await page.close();
-    console.log(novelData);
     await saveNovelToDB(novelData);
     return novelData;
 
@@ -126,10 +137,12 @@ function viewsToInt(viewsStr) {
 
 
 const fetchAllNovelsData = async () => { // main 함수
-  const novelLinks = await fetchNovelLinks(); // 이전에 구현한 fetchNovelLinks 함수 호출
+  
   const novels = [];
   const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox']}) //linux 버전
     //browser = await puppeteer.launch({ headless: true }); // 윈도우 버전 
+  const novelLinks = await fetchNovelLinks(browser); // 이전에 구현한 fetchNovelLinks 함수 호출
+  console.log(novelLinks.length);
 
   for (const link of novelLinks) {
     
@@ -138,7 +151,6 @@ const fetchAllNovelsData = async () => { // main 함수
       novels.push(novelData); // 유효한 데이터만 추가
     }
     const waitTime = Math.floor(Math.random() * 2000) + 1000;
-    console.log(`Waiting for ${waitTime} ms...`);
     await wait(waitTime);
 
   }

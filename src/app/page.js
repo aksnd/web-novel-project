@@ -1,38 +1,42 @@
 // src/app/page.js
 "use client";
 
-import { useEffect, useState } from 'react';
+// src/app/recommendations/page.js
+import React, { useState } from 'react';
+import NovelSelectDropdown from '../components/NovelSelectDropdown';
 
-export default function Home() {
-  const [novels, setNovels] = useState([]);
+export default function RecommendationsPage() {
+  const [selectedNovel, setSelectedNovel] = useState(null);
+  const [recommendations, setRecommendations] = useState([]);
 
-  useEffect(() => {
-    const fetchNovels = async () => {
-      try {
-        const response = await fetch('/api/novels');
-        const data = await response.json();
-        setNovels(data);
-      } catch (error) {
-        console.error('Error fetching novels:', error);
-      }
-    };
+  async function handleSelect(novel) {
+    setSelectedNovel(novel);
 
-    fetchNovels();
-  }, []);
+    const res = await fetch(`/api/recommendations?novelId=${novel.value}`);
+    const data = await res.json();
+    setRecommendations(data);
+  }
 
   return (
     <div>
-      <h1>Top 5 Novels by Views</h1>
-      <ul>
-        {novels.map((novel) => (
-          <li key={novel.id}>
-            <h2>{novel.title}</h2>
-            <p>Author: {novel.author}</p>
-            <p>{novel.description}</p>
-            <p>Views: {novel.views}</p>
-          </li>
-        ))}
-      </ul>
+      <h1>Find Similar Novels</h1>
+      <NovelSelectDropdown onSelect={handleSelect} />
+
+      {selectedNovel && (
+        <div>
+          <h2>Recommendations for "{selectedNovel.label}"</h2>
+          <div>
+            {recommendations.map(recommendation => (
+              <div>
+                <h3>{recommendation.novel.title}</h3>
+                <h3>{recommendation.similarity}</h3>
+                <p>{recommendation.novel.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
