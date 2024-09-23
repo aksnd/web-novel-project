@@ -71,6 +71,7 @@ function computeCosineSimilarity(vectorA, vectorB) {
 async function createNovelVectors(){
     
     novels = await fetchNovelsAndTags();
+    console.log(novels.slice(100, 140));
     const tagDocumentCount = {}; //각 태그별 나오는 개수
     const totalDocuments = novels.length; // 총 소설 개수
     
@@ -99,7 +100,6 @@ export async function getSimilarNovels(targetId, topN = 5) {
     if(novels==null || vectors==null){
         await createNovelVectors();
     }
-
     const targetVector = vectors.find(v => v.id === targetId).vector;
     
 

@@ -28,7 +28,7 @@ export default function RecommendationsPage() {
           <div>
             {recommendations.map(recommendation => (
               <div>
-                <h3>{recommendation.novel.title}</h3>
+                <h1>{recommendation.novel.title}</h1>
                 <h3>{recommendation.similarity}</h3>
                 <p>{recommendation.novel.description}</p>
               </div>
